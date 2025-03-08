@@ -121,6 +121,10 @@ void *client_thread_func(void *arg) {
     data->total_messages = threadMessagesSent;
     data->request_rate = (float)threadMessagesSent / (totalThreadRTT / 1000000.0);
 
+    //close the sockets now
+    close(data->socket_fd);
+    close(data->epoll_fd);
+
 
     // Hint 2: use gettimeofday() and "struct timeval start, end" to record timestamp, which can be used to calculated RTT.
     // calculate RTT
@@ -157,7 +161,6 @@ void run_client() {
      * and connect these sockets of client threads to the server
      */
     //bind socket to server
-    struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(server_port);
@@ -175,6 +178,11 @@ void run_client() {
         if(clientSocketFD < 0)
         {
             perror("Client socket creation");
+            exit(1);
+        }
+        if(connect(clientSocketFD, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+        {
+            perror("Client connect");
             exit(1);
         }
         //Create an epoll instance for the thread
@@ -218,7 +226,7 @@ void run_client() {
         //may need to come back and close the socket and epoll instance for the threads
     }
 
-    printf("Average RTT: %lld us\n", totalRTT / totalMessages);
+    if(totalMessages>0) printf("Average RTT: %lld us\n", totalRTT / totalMessages);
     printf("Total Request Rate: %f messages/s\n", totalRequestRate);
 }
 
