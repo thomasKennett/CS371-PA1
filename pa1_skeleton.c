@@ -69,15 +69,8 @@ void *client_thread_func(void *arg) {
     long long totalThreadRTT = 0;
     int threadMessagesSent = 0;
     //register the "connected" clientThread's socket in the its epoll instance
-    //epoll event must listen for data to be read, so use EPOLLIN
-    event.events = EPOLLIN;
-    event.data.fd = data->socket_fd;
-    if(epoll_ctl(data->epoll_fd, EPOLL_CTL_ADD, data->socket_fd, &event) < 0)
-    {
-        perror("singular thread epoll_ctl: ADD");
-        exit(1);
-    }
-
+    //dont need to set the poll_ctl to the current socket, this is handled in client setup
+    //iterate through every request within current thread
     for(int i = 0; i < num_requests; i++)
     {
         //start time measurement
@@ -116,7 +109,7 @@ void *client_thread_func(void *arg) {
             threadMessagesSent++;
         }
     }
-    // Update global metrics (make sure you lock and unlock mutex to avoid race conditions here)
+    // Update global metrics (may lead to race conditions if they access same data? Check back)
     data->total_rtt = totalThreadRTT;
     data->total_messages = threadMessagesSent;
     data->request_rate = (float)threadMessagesSent / (totalThreadRTT / 1000000.0);
@@ -124,21 +117,6 @@ void *client_thread_func(void *arg) {
     //close the sockets now
     close(data->socket_fd);
     close(data->epoll_fd);
-
-
-    // Hint 2: use gettimeofday() and "struct timeval start, end" to record timestamp, which can be used to calculated RTT.
-    // calculate RTT
-
-
-    /* TODO:
-     * It sends messages to the server, waits for a response using epoll,
-     * and measures the round-trip time (RTT) of this request-response.
-     */
- 
-    /* TODO:
-     * The function exits after sending and receiving a predefined number of messages (num_requests). 
-     * It calculates the request rate based on total messages and RTT
-     */
 
     return NULL;
 }
@@ -156,10 +134,6 @@ void run_client() {
     long long totalRTT = 0;
     long totalMessages = 0;
     float totalRequestRate = 0.0;
-    /* TODO:
-     * Create sockets and epoll instances for client threads
-     * and connect these sockets of client threads to the server
-     */
     //bind socket to server
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -180,6 +154,7 @@ void run_client() {
             perror("Client socket creation");
             exit(1);
         }
+        //use connect to connect the client socket to the network
         if(connect(clientSocketFD, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
         {
             perror("Client connect");
